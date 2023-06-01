@@ -4,7 +4,7 @@ This is the code implementation of GAN-in-GAN.
 GAN-in-GAN is a novel GAN architecture proposed by us to simultaneously optimize both spectrogram-level and audio-level representations for an end-to-end monaural speech enhancement.
 
 
-### Author: Yicun Duan (20216268)
+### Author: Yicun Duan
 ### Email: scyyd3 at nottingham dot edu dot cn
 
 ## Getting Started
@@ -83,3 +83,8 @@ python main.py
 * I thank Prof. Jianfeng Ren, Prof. Xudong Jiang and Prof. Heng Yu for their patient guidance and insightful suggestions.
 * The complex-valued Restormer implementation is adapted from https://github.com/leftthomas/Restormer
 * The training code uses https://github.com/yuguochencuc/DB-AIAT for reference.
+
+## TODO
+
+* test this project
+* add more testing

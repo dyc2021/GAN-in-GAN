@@ -6,6 +6,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 import random
 import soundfile as sf
+import torchaudio
 
 DATASET_FILE_PATH = os.path.join(".", "dataset")
 CHUNK_LENGTH = 159 * 159
@@ -104,10 +105,11 @@ def generate_feats_labels(batch):
                                                      mix_file_name))
         label_wav, ori_label_sr = sf.read(os.path.join(DATASET_FILE_PATH, "train", "clean_trainset_28spk_wav",
                                                        clean_file_name))
-        # feat_wav = torchaudio.functional.resample(to_tensor(feat_wav), orig_freq=ori_feat_sr, new_freq=16000)
-        # label_wav = torchaudio.functional.resample(to_tensor(label_wav), orig_freq=ori_label_sr, new_freq=16000)
-        feat_wav = to_tensor(feat_wav)
-        label_wav = to_tensor(label_wav)
+
+        feat_wav = torchaudio.functional.resample(to_tensor(feat_wav), orig_freq=ori_feat_sr, new_freq=16000)
+        label_wav = torchaudio.functional.resample(to_tensor(label_wav), orig_freq=ori_label_sr, new_freq=16000)
+        # feat_wav = to_tensor(feat_wav)
+        # label_wav = to_tensor(label_wav)
         c = torch.sqrt(len(feat_wav) / torch.sum(feat_wav ** 2.0))
         feat_wav, label_wav = feat_wav * c, label_wav * c
         if len(feat_wav) > CHUNK_LENGTH:
@@ -122,40 +124,12 @@ def generate_feats_labels(batch):
 
     feat_list = nn.utils.rnn.pad_sequence(feat_list, batch_first=True)
     label_list = nn.utils.rnn.pad_sequence(label_list, batch_first=True)
-    feat_list = torch.stft(feat_list, n_fft=FFT_NUM, hop_length=WIN_SHIFT, win_length=WIN_SIZE,
-                           window=torch.hann_window(FFT_NUM), return_complex=True)
-    label_list = torch.stft(label_list, n_fft=FFT_NUM, hop_length=WIN_SHIFT, win_length=WIN_SIZE,
-                            window=torch.hann_window(FFT_NUM), return_complex=True)
-    return feat_list, label_list, frame_mask_list
-
-
-def test_generate_feats_labels(batch):
-    batch = batch[0]
-    feat_list, label_list, frame_mask_list = [], [], []
-    to_tensor = ToTensor()
-    for id in range(len(batch)):
-        clean_file_name = "{}.wav".format(batch[id])
-        mix_file_name = "{}.wav".format(batch[id])
-        feat_wav, _ = sf.read(os.path.join(DATASET_FILE_PATH, "test", "noisy_testset_wav", mix_file_name))
-        label_wav, _ = sf.read(os.path.join(DATASET_FILE_PATH, "test", "clean_testset_wav", clean_file_name))
-        c = np.sqrt(len(feat_wav) / np.sum(feat_wav ** 2.0))
-        feat_wav, label_wav = to_tensor(feat_wav * c), to_tensor(label_wav * c)
-        if len(feat_wav) > CHUNK_LENGTH:
-            wav_start = random.randint(0, len(feat_wav) - CHUNK_LENGTH)
-            feat_wav = feat_wav[wav_start:wav_start + CHUNK_LENGTH]
-            label_wav = label_wav[wav_start:wav_start + CHUNK_LENGTH]
-
-        frame_num = (len(feat_wav) - WIN_SIZE + FFT_NUM) // WIN_SHIFT + 1
-        frame_mask_list.append(frame_num)
-        feat_list.append(feat_wav)
-        label_list.append(label_wav)
-
-    feat_list = nn.utils.rnn.pad_sequence(feat_list, batch_first=True)
-    label_list = nn.utils.rnn.pad_sequence(label_list, batch_first=True)
-    feat_list = torch.stft(feat_list, n_fft=FFT_NUM, hop_length=WIN_SHIFT, win_length=WIN_SIZE,
-                           window=torch.hann_window(FFT_NUM), return_complex=True)
-    label_list = torch.stft(label_list, n_fft=FFT_NUM, hop_length=WIN_SHIFT, win_length=WIN_SIZE,
-                            window=torch.hann_window(FFT_NUM), return_complex=True)
+    feat_list = nn.ConstantPad1d((0, CHUNK_LENGTH - feat_list.shape[-1]), 0.0)(feat_list)
+    label_list = nn.ConstantPad1d((0, CHUNK_LENGTH - label_list.shape[-1]), 0.0)(label_list)
+    # feat_list = torch.stft(feat_list, n_fft=FFT_NUM, hop_length=WIN_SHIFT, win_length=WIN_SIZE,
+    #                        window=torch.hann_window(FFT_NUM), return_complex=True)
+    # label_list = torch.stft(label_list, n_fft=FFT_NUM, hop_length=WIN_SHIFT, win_length=WIN_SIZE,
+    #                         window=torch.hann_window(FFT_NUM), return_complex=True)
     return feat_list, label_list, frame_mask_list
 
 
@@ -173,6 +147,42 @@ class TestDataLoader(object):
 
     def get_data_loader(self):
         return self.data_loader
+
+
+def test_generate_feats_labels(batch):
+    batch = batch[0]
+    feat_list, label_list, frame_mask_list = [], [], []
+    to_tensor = ToTensor()
+    for id in range(len(batch)):
+        clean_file_name = "{}.wav".format(batch[id])
+        mix_file_name = "{}.wav".format(batch[id])
+        feat_wav, ori_feat_sr = sf.read(os.path.join(DATASET_FILE_PATH, "test", "noisy_testset_wav", mix_file_name))
+        label_wav, ori_label_sr = sf.read(os.path.join(DATASET_FILE_PATH, "test", "clean_testset_wav", clean_file_name))
+
+        feat_wav = torchaudio.functional.resample(to_tensor(feat_wav), orig_freq=ori_feat_sr, new_freq=16000)
+        label_wav = torchaudio.functional.resample(to_tensor(label_wav), orig_freq=ori_label_sr, new_freq=16000)
+
+        c = torch.sqrt(len(feat_wav) / torch.sum(feat_wav ** 2.0))
+        feat_wav, label_wav = feat_wav * c, label_wav * c
+        if len(feat_wav) > CHUNK_LENGTH:
+            wav_start = random.randint(0, len(feat_wav) - CHUNK_LENGTH)
+            feat_wav = feat_wav[wav_start:wav_start + CHUNK_LENGTH]
+            label_wav = label_wav[wav_start:wav_start + CHUNK_LENGTH]
+
+        frame_num = (len(feat_wav) - WIN_SIZE + FFT_NUM) // WIN_SHIFT + 1
+        frame_mask_list.append(frame_num)
+        feat_list.append(feat_wav)
+        label_list.append(label_wav)
+
+    feat_list = nn.utils.rnn.pad_sequence(feat_list, batch_first=True)
+    label_list = nn.utils.rnn.pad_sequence(label_list, batch_first=True)
+    feat_list = nn.ConstantPad1d((0, CHUNK_LENGTH - feat_list.shape[-1]), 0.0)(feat_list)
+    label_list = nn.ConstantPad1d((0, CHUNK_LENGTH - label_list.shape[-1]), 0.0)(label_list)
+    # feat_list = torch.stft(feat_list, n_fft=FFT_NUM, hop_length=WIN_SHIFT, win_length=WIN_SIZE,
+    #                        window=torch.hann_window(FFT_NUM), return_complex=True)
+    # label_list = torch.stft(label_list, n_fft=FFT_NUM, hop_length=WIN_SHIFT, win_length=WIN_SIZE,
+    #                         window=torch.hann_window(FFT_NUM), return_complex=True)
+    return feat_list, label_list, frame_mask_list
 
 
 class BatchInfo(object):

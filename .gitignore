@@ -1,0 +1,4 @@
+dataset/test/
+dataset/train/
+.idea/
+__pycache__/

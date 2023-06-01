@@ -282,17 +282,7 @@ class ComplexRestormer(nn.Module):
         self.output = ComplexConv2d(channels[1], 1, kernel_size=3, padding=1, bias=False)
 
     def forward(self, audio):
-        x_complex = torch.stft(audio, n_fft=self.n_fft, win_length=self.win_length, hop_length=self.hop_length,
-                               window=self.window,
-                               return_complex=True).unsqueeze(1)
-
-        x_mag = torch.sqrt(x_complex.real ** 2 + x_complex.imag ** 2)
-        x_phase = torch.atan2(x_complex.imag, x_complex.real)
-
-        x_compressed_mag = x_mag ** self.spectrogram_compress_factor
-
-        x_complex_compressed = torch.complex(x_compressed_mag * torch.cos(x_phase),
-                                             x_compressed_mag * torch.sin(x_phase))
+        x_compressed_mag, x_phase, x_complex_compressed = self.compress(audio)
 
         fo = self.embed_conv(x_complex_compressed)
         out_enc1 = self.encoders[0](fo)
@@ -312,18 +302,36 @@ class ComplexRestormer(nn.Module):
         clean_compressed_mag = self.tanh_scaling_factor * torch.tanh(out_compressed_mag) * x_compressed_mag
         clean_phase = out_phase + x_phase
 
-        clean_mag = clean_compressed_mag ** (1.0 / self.spectrogram_compress_factor)
+        clean_audio = self.decompress(clean_compressed_mag, clean_phase)
 
+        return (x_complex_compressed,
+                out_complex_compressed,
+                clean_audio)
+
+    def compress(self, audio):
+        x_complex = torch.stft(audio, n_fft=self.n_fft, win_length=self.win_length, hop_length=self.hop_length,
+                               window=self.window,
+                               return_complex=True).unsqueeze(1)
+
+        x_mag = torch.sqrt(x_complex.real ** 2 + x_complex.imag ** 2)
+        x_phase = torch.atan2(x_complex.imag, x_complex.real)
+
+        x_compressed_mag = x_mag ** self.spectrogram_compress_factor
+
+        x_complex_compressed = torch.complex(x_compressed_mag * torch.cos(x_phase),
+                                             x_compressed_mag * torch.sin(x_phase))
+
+        return x_compressed_mag, x_phase, x_complex_compressed
+
+    def decompress(self, clean_compressed_mag, clean_phase):
+        clean_mag = clean_compressed_mag ** (1.0 / self.spectrogram_compress_factor)
         clean_complex = torch.complex(clean_mag * torch.cos(clean_phase), clean_mag * torch.sin(clean_phase))
 
-        return (x_complex_compressed.squeeze(1),
-                out_complex_compressed.squeeze(1),
-                torch.istft(clean_complex.squeeze(1),
-                            n_fft=self.n_fft,
-                            win_length=self.win_length,
-                            window=self.window,
-                            hop_length=self.hop_length)
-                )
+        return torch.istft(clean_complex.squeeze(1),
+                           n_fft=self.n_fft,
+                           win_length=self.win_length,
+                           window=self.window,
+                           hop_length=self.hop_length)
 
     def only_stft_forward(self, audio):
         return torch.stft(audio, n_fft=self.n_fft, win_length=self.win_length, hop_length=self.hop_length,
@@ -545,7 +553,8 @@ class SpectroDualRestormer(nn.Module):
         clean_mag = torch.tanh(out_mag_mask) * spectrogram_mag
 
         clean_complex = torch.complex(clean_mag * torch.cos(spectrogram_phase) + out_phase_complex_[:, 0, :, :],
-                                      clean_mag * torch.sin(spectrogram_phase) + out_phase_complex_[:, 1, :, :]).squeeze(1)
+                                      clean_mag * torch.sin(spectrogram_phase) + out_phase_complex_[:, 1, :,
+                                                                                 :]).squeeze(1)
 
         return clean_complex
 

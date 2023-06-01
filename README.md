@@ -1,4 +1,4 @@
-## About The Project
+# About The Project
 
 This is the code implementation of GAN-in-GAN. 
 GAN-in-GAN is a novel GAN architecture proposed by us to simultaneously optimize both spectrogram-level and audio-level representations for an end-to-end monaural speech enhancement.
@@ -6,8 +6,6 @@ GAN-in-GAN is a novel GAN architecture proposed by us to simultaneously optimize
 
 ### Author: Yicun Duan (20216268)
 ### Email: scyyd3 at nottingham dot edu dot cn
-
----
 
 ## Getting Started
 
@@ -26,6 +24,22 @@ You should install PyTorch and the following support packets:
   ```sh
   pip install ptflops
   ```
+  
+* torchmetrics (v0.11.4)
+  ```sh
+  pip install torchmetrics
+  ```
+  
+* pesq (v0.0.4)
+  ```sh
+  pip install pesq
+  ```
+  
+* joblib (v1.2.0)
+  ```sh
+  pip install joblib
+  ```
+
   
 You should also correctly deploy the VoiceBank+DEMAND dataset.
 Please place the training audio samples under folder `./dataset/train/`, and 
@@ -55,7 +69,6 @@ To start training, just enter the command:
 python main.py
 ```
 
----
 ## Files
 
 * dataset.py: it contains the `Dataset` and `DataLoader` classes
@@ -64,7 +77,6 @@ python main.py
 * json_extract.py: it generates the json files listing train data and test data
 * main.py: it's the entry of this project
 * train.py and train_solver.py: they contain the training code
----
 
 ## Acknowledgments
 

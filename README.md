@@ -88,3 +88,4 @@ python main.py
 
 * test this project
 * add more testing
+* add gradient balancing: we are trying to contact the author of "Towards Impartial Multi-Task Learning" to get their source code, since we are concerned that our own implementation may differ from theirs, which could lead to copyright disputes. therefore, this repository now doesn't contain the codes of gradient balancing.

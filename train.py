@@ -2,6 +2,7 @@ import torch
 import dataset
 import train_solver
 import itertools
+import gradient_balancing
 
 
 def train(args, model: torch.nn.Module,
@@ -21,7 +22,10 @@ def train(args, model: torch.nn.Module,
                                          pin_memory=True)
     data = {'train_loader': train_loader, 'test_loader': test_loader}
 
-    generator_optimizer = torch.optim.Adam(filter(lambda x: x.requires_grad, model.parameters()),
+    gradient_balance_module = gradient_balancing.GradientBalancing(losses_num=4)
+    generator_optimizer = torch.optim.Adam(itertools.chain(filter(lambda x: x.requires_grad, model.parameters()),
+                                                           filter(lambda x: x.requires_grad,
+                                                                  gradient_balance_module.parameters())),
                                            lr=args.lr,
                                            weight_decay=args.l2)
     discriminator_mpd_msd_optimizer = torch.optim.AdamW(itertools.chain(discriminator_mpd.parameters(),
@@ -44,5 +48,6 @@ def train(args, model: torch.nn.Module,
                                       discriminator_pesq=discriminator_pesq,
                                       discriminator_pesq_optimizer=discriminator_pesq_optimizer,
                                       discriminator_pesq_scheduler=discriminator_pesq_scheduler,
+                                      gradient_balance_module=gradient_balance_module,
                                       args=args)
     solver.run()

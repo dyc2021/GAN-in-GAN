@@ -77,6 +77,7 @@ class TrainSolver(object):
                  discriminator_pesq,
                  discriminator_pesq_optimizer,
                  discriminator_pesq_scheduler,
+                 gradient_balance_module,
                  args):
         # load args parameters
         self.train_loader = data['train_loader']
@@ -99,6 +100,8 @@ class TrainSolver(object):
         self.pesq = discriminator_pesq.cuda()
         self.pesq_optimizer = discriminator_pesq_optimizer
         self.pesq_scheduler = discriminator_pesq_scheduler
+
+        self.gradient_balance_module = gradient_balance_module.cuda()
 
         self.pesq_estimator = calculate_pesq
 
@@ -249,10 +252,14 @@ class TrainSolver(object):
 
                 generator_abs_loss = F.l1_loss(esti, batch_label)
 
-                generator_loss = generator_feature_map_loss * 2 + \
-                                 generator_multi_resolution_loss + \
-                                 generator_abs_loss * 45 + \
-                                 generator_pesq_loss * 9
+                # generator_loss = generator_feature_map_loss * 2 + \
+                #                  generator_multi_resolution_loss + \
+                #                  generator_abs_loss * 45 + \
+                #                  generator_pesq_loss * 9
+                generator_losses = [generator_feature_map_loss * 2, generator_multi_resolution_loss,
+                                    generator_abs_loss * 45, generator_pesq_loss * 9]
+                final_generator_losses = self.gradient_balance_module.balance_losses(generator_losses)
+                generator_loss = sum(final_generator_losses)
                 generator_loss_item = generator_loss.item()
 
                 generator_loss.backward()
